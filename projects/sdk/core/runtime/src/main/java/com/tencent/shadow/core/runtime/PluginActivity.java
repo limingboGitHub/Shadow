@@ -81,8 +81,7 @@ public abstract class PluginActivity extends GeneratedPluginActivity {
     }
 
     public LayoutInflater getLayoutInflater() {
-        LayoutInflater inflater = hostActivityDelegator.getWindow().getLayoutInflater();
-        return ShadowLayoutInflater.build(inflater, this, mPartKey);
+        return LayoutInflater.from(this);
     }
 
     //TODO: 对齐原手工代码，这个方法签名实际上不对，应该传入ShadowActivity
@@ -110,4 +109,13 @@ public abstract class PluginActivity extends GeneratedPluginActivity {
         hostActivityDelegator.setTheme(resid);
     }
 
+    @Override
+    public Object getSystemService(String name) {
+        if (LAYOUT_INFLATER_SERVICE.equals(name)) {
+            return super.getSystemService(name);
+        } else {
+            return hostActivityDelegator.getHostActivity().getImplementActivity()
+                    .getSystemService(name);
+        }
+    }
 }

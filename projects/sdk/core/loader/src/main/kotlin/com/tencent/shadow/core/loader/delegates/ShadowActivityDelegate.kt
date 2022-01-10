@@ -21,7 +21,6 @@ package com.tencent.shadow.core.loader.delegates
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
-import android.content.Context.LAYOUT_INFLATER_SERVICE
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -30,9 +29,8 @@ import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.WindowManager
+import com.tencent.shadow.coding.java_build_config.BuildConfig
 import com.tencent.shadow.core.common.LoggerFactory
-import com.tencent.shadow.core.loader.BuildConfig
-import com.tencent.shadow.core.loader.infos.PluginActivityInfo
 import com.tencent.shadow.core.loader.managers.ComponentManager.Companion.CM_ACTIVITY_INFO_KEY
 import com.tencent.shadow.core.loader.managers.ComponentManager.Companion.CM_BUSINESS_NAME_KEY
 import com.tencent.shadow.core.loader.managers.ComponentManager.Companion.CM_CALLING_ACTIVITY_KEY
@@ -82,7 +80,7 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
     private lateinit var mCurrentConfiguration: Configuration
     private var mPluginHandleConfigurationChange: Int = 0
     private var mCallingActivity: ComponentName? = null
-    protected lateinit var mPluginActivityInfo: PluginActivityInfo
+    protected lateinit var mPluginActivityInfo: PluginManifest.ActivityInfo
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val pluginInitBundle = savedInstanceState ?: mHostActivityDelegator.intent.extras!!
@@ -100,12 +98,12 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
         mBundleForPluginLoader = bundleForPluginLoader
         bundleForPluginLoader.classLoader = this.javaClass.classLoader
         val pluginActivityClassName = bundleForPluginLoader.getString(CM_CLASS_NAME_KEY)!!
-        val pluginActivityInfo: PluginActivityInfo = bundleForPluginLoader.getParcelable(CM_ACTIVITY_INFO_KEY)!!
+        val pluginActivityInfo: PluginManifest.ActivityInfo = bundleForPluginLoader.getParcelable(CM_ACTIVITY_INFO_KEY)!!
         mPluginActivityInfo = pluginActivityInfo
 
         mCurrentConfiguration = Configuration(resources.configuration)
         mPluginHandleConfigurationChange =
-                (pluginActivityInfo.activityInfo!!.configChanges
+                (pluginActivityInfo.configChanges
                         or ActivityInfo.CONFIG_SCREEN_SIZE//系统本身就会单独对待这个属性，不声明也不会重启Activity。
                         or ActivityInfo.CONFIG_SMALLEST_SCREEN_SIZE//系统本身就会单独对待这个属性，不声明也不会重启Activity。
                         or 0x20000000 //见ActivityInfo.CONFIG_WINDOW_CONFIGURATION 系统处理属性
@@ -133,7 +131,7 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
             mHostActivityDelegator.window.callback = pluginActivity
 
             //设置插件AndroidManifest.xml 中注册的WindowSoftInputMode
-            mHostActivityDelegator.window.setSoftInputMode(pluginActivityInfo.activityInfo.softInputMode)
+            mHostActivityDelegator.window.setSoftInputMode(pluginActivityInfo.softInputMode)
 
             //Activity.onCreate调用之前应该先收到onWindowAttributesChanged。
             if (mCallOnWindowAttributesChanged) {
@@ -156,7 +154,7 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
         }
     }
 
-    private fun initPluginActivity(pluginActivity: PluginActivity, pluginActivityInfo: PluginActivityInfo) {
+    private fun initPluginActivity(pluginActivity: PluginActivity, pluginActivityInfo: PluginManifest.ActivityInfo) {
         pluginActivity.setHostActivityDelegator(mHostActivityDelegator)
         pluginActivity.setPluginResources(mPluginResources)
         pluginActivity.setPluginClassLoader(mPluginClassLoader)
@@ -174,7 +172,13 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
         //有可能会执行业务Activity覆盖的逻辑。
         //所以，这个调用要放在最后。
         pluginActivity.setHostContextAsBase(mHostActivityDelegator.hostActivity as Context)
-        pluginActivity.setTheme(pluginActivityInfo.themeResource)
+
+        val activityTheme = if (pluginActivityInfo.theme != 0) {
+            pluginActivityInfo.theme
+        } else {
+            pluginActivity.applicationInfo.theme
+        }
+        pluginActivity.setTheme(activityTheme)
     }
 
     override fun getLoaderVersion() = BuildConfig.VERSION_NAME
@@ -250,10 +254,7 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
         return mPluginClassLoader
     }
 
-    override fun getLayoutInflater(): LayoutInflater {
-        val inflater = mHostActivityDelegator.applicationContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-        return ShadowLayoutInflater.build(inflater, mPluginActivity, mPartKey)
-    }
+    override fun getLayoutInflater(): LayoutInflater = LayoutInflater.from(mPluginActivity)
 
     override fun getResources(): Resources {
         if (mDependenciesInjected) {

@@ -48,6 +48,7 @@ class PackagePluginTaskTest {
                 .withProjectDir(ROOT_PROJECT_DIR)
                 .withPluginClasspath()
                 .withArguments(listOf(
+                        "-xgeneratePluginDebugPluginManifest",
                         "-Pdisable_shadow_transform=true",
                         ":plugin1:packageDebugPlugin"
                 ))
@@ -68,7 +69,7 @@ class PackagePluginTaskTest {
     private fun assertFile(zipFile: ZipFile) {
         val zipFileNames = mutableSetOf<String>()
         zipFileNames.add("config.json")
-        zipFileNames.add("plugin1-debug.apk")
+        zipFileNames.add("plugin1-plugin-debug.apk")
         zipFileNames.add("loader-debug.apk")
         zipFileNames.add("runtime-debug.apk")
 
@@ -104,7 +105,7 @@ class PackagePluginTaskTest {
         val pluginJson = pluginsJson[0] as JSONObject
         assertEquals("plugin1", pluginJson["partKey"])
         assertEquals("plugin1", pluginJson["businessName"])
-        assertEquals("plugin1-debug.apk", pluginJson["apkName"])
+        assertEquals("plugin1-plugin-debug.apk", pluginJson["apkName"])
         val dependsOnJson = pluginJson["dependsOn"] as JSONArray
         assertEquals(2, dependsOnJson.size)
         assertNotNull(pluginJson["hash"])
