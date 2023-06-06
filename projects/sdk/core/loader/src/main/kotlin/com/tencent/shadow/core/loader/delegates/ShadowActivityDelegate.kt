@@ -38,7 +38,9 @@ import com.tencent.shadow.core.loader.managers.ComponentManager.Companion.CM_CLA
 import com.tencent.shadow.core.loader.managers.ComponentManager.Companion.CM_EXTRAS_BUNDLE_KEY
 import com.tencent.shadow.core.loader.managers.ComponentManager.Companion.CM_LOADER_BUNDLE_KEY
 import com.tencent.shadow.core.loader.managers.ComponentManager.Companion.CM_PART_KEY
-import com.tencent.shadow.core.runtime.*
+import com.tencent.shadow.core.runtime.PluginActivity
+import com.tencent.shadow.core.runtime.PluginManifest
+import com.tencent.shadow.core.runtime.ShadowActivity
 import com.tencent.shadow.core.runtime.container.HostActivityDelegate
 import com.tencent.shadow.core.runtime.container.HostActivityDelegator
 
@@ -64,12 +66,13 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
     private var mPluginActivityCreated = false
     private var mDependenciesInjected = false
     private var mRecreateCalled = false
+
     /**
      * 判断是否调用过OnWindowAttributesChanged，如果调用过就说明需要在onCreate之前调用
      */
     private var mCallOnWindowAttributesChanged = false
-    private var mBeforeOnCreateOnWindowAttributesChangedCalledParams: WindowManager.LayoutParams? = null
-    private lateinit var mMixResources: MixResources
+    private var mBeforeOnCreateOnWindowAttributesChangedCalledParams: WindowManager.LayoutParams? =
+        null
 
     override fun setDelegator(hostActivityDelegator: HostActivityDelegator) {
         mHostActivityDelegator = hostActivityDelegator
@@ -92,22 +95,21 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
         mDI.inject(this, partKey)
         mDependenciesInjected = true
 
-        mMixResources = MixResources(mHostActivityDelegator.superGetResources(), mPluginResources)
-
         val bundleForPluginLoader = pluginInitBundle.getBundle(CM_LOADER_BUNDLE_KEY)!!
         mBundleForPluginLoader = bundleForPluginLoader
         bundleForPluginLoader.classLoader = this.javaClass.classLoader
         val pluginActivityClassName = bundleForPluginLoader.getString(CM_CLASS_NAME_KEY)!!
-        val pluginActivityInfo: PluginManifest.ActivityInfo = bundleForPluginLoader.getParcelable(CM_ACTIVITY_INFO_KEY)!!
+        val pluginActivityInfo: PluginManifest.ActivityInfo =
+            bundleForPluginLoader.getParcelable(CM_ACTIVITY_INFO_KEY)!!
         mPluginActivityInfo = pluginActivityInfo
 
         mCurrentConfiguration = Configuration(resources.configuration)
         mPluginHandleConfigurationChange =
-                (pluginActivityInfo.configChanges
-                        or ActivityInfo.CONFIG_SCREEN_SIZE//系统本身就会单独对待这个属性，不声明也不会重启Activity。
-                        or ActivityInfo.CONFIG_SMALLEST_SCREEN_SIZE//系统本身就会单独对待这个属性，不声明也不会重启Activity。
-                        or 0x20000000 //见ActivityInfo.CONFIG_WINDOW_CONFIGURATION 系统处理属性
-                        )
+            (pluginActivityInfo.configChanges
+                    or ActivityInfo.CONFIG_SCREEN_SIZE//系统本身就会单独对待这个属性，不声明也不会重启Activity。
+                    or ActivityInfo.CONFIG_SMALLEST_SCREEN_SIZE//系统本身就会单独对待这个属性，不声明也不会重启Activity。
+                    or 0x20000000 //见ActivityInfo.CONFIG_WINDOW_CONFIGURATION 系统处理属性
+                    )
         if (savedInstanceState == null) {
             mRawIntentExtraBundle = pluginInitBundle.getBundle(CM_EXTRAS_BUNDLE_KEY)
             mHostActivityDelegator.intent.replaceExtras(mRawIntentExtraBundle)
@@ -116,15 +118,19 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
 
         try {
             val pluginActivity = mAppComponentFactory.instantiateActivity(
-                    mPluginClassLoader,
-                    pluginActivityClassName,
-                    mHostActivityDelegator.intent
+                mPluginClassLoader,
+                pluginActivityClassName,
+                mHostActivityDelegator.intent
             )
             initPluginActivity(pluginActivity, pluginActivityInfo)
             super.pluginActivity = pluginActivity
 
             if (mLogger.isDebugEnabled) {
-                mLogger.debug("{} mPluginHandleConfigurationChange=={}", mPluginActivity.javaClass.canonicalName, mPluginHandleConfigurationChange)
+                mLogger.debug(
+                    "{} mPluginHandleConfigurationChange=={}",
+                    mPluginActivity.javaClass.canonicalName,
+                    mPluginHandleConfigurationChange
+                )
             }
 
             //使PluginActivity替代ContainerActivity接收Window的Callback
@@ -154,7 +160,10 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
         }
     }
 
-    private fun initPluginActivity(pluginActivity: PluginActivity, pluginActivityInfo: PluginManifest.ActivityInfo) {
+    private fun initPluginActivity(
+        pluginActivity: PluginActivity,
+        pluginActivityInfo: PluginManifest.ActivityInfo
+    ) {
         pluginActivity.setHostActivityDelegator(mHostActivityDelegator)
         pluginActivity.setPluginResources(mPluginResources)
         pluginActivity.setPluginClassLoader(mPluginClassLoader)
@@ -213,7 +222,11 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
     override fun onConfigurationChanged(newConfig: Configuration) {
         val diff = newConfig.diff(mCurrentConfiguration)
         if (mLogger.isDebugEnabled) {
-            mLogger.debug("{} onConfigurationChanged diff=={}", mPluginActivity.javaClass.canonicalName, diff)
+            mLogger.debug(
+                "{} onConfigurationChanged diff=={}",
+                mPluginActivity.javaClass.canonicalName,
+                diff
+            )
         }
         if (diff == (diff and mPluginHandleConfigurationChange)) {
             mPluginActivity.onConfigurationChanged(newConfig)
@@ -258,7 +271,7 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
 
     override fun getResources(): Resources {
         if (mDependenciesInjected) {
-            return mMixResources;
+            return mPluginResources;
         } else {
             //预期只有android.view.Window.getDefaultFeatures会调用到这个分支，此时我们还无法确定插件资源
             //而getDefaultFeatures只需要访问系统资源
@@ -275,7 +288,7 @@ open class ShadowActivityDelegate(private val mDI: DI) : GeneratedShadowActivity
         pluginActivity: ShadowActivity,
         pluginSavedInstanceState: Bundle?
     ) {
-        ShadowActivityLifecycleCallbacks.Holder.notifyPluginActivityPreCreated(
+        mPluginApplication.mActivityLifecycleCallbacksHolder.notifyPluginActivityPreCreated(
             pluginActivity,
             pluginSavedInstanceState
         )

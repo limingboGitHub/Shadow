@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
   ~ Tencent is pleased to support the open source community by making Tencent Shadow available.
   ~ Copyright (C) 2019 THL A29 Limited, a Tencent company.  All rights reserved.
   ~
@@ -21,11 +20,4 @@
 
     <style name="TestHostTheme" parent="@android:style/Theme.NoTitleBar.Fullscreen" />
 
-    <style name="troop_Transparent" parent="@android:style/Theme">
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
-    </style>
 </resources>

@@ -37,13 +37,13 @@ import java.io.File
  *                                 |
  *  PluginClassLoaderB        PluginClassLoaderC
  *
-*/
+ */
 class PluginClassLoader(
-        dexPath: String,
-        optimizedDirectory: File?,
-        librarySearchPath: String?,
-        parent: ClassLoader,
-        private val specialClassLoader: ClassLoader?, hostWhiteList: Array<String>?
+    dexPath: String,
+    optimizedDirectory: File?,
+    librarySearchPath: String?,
+    parent: ClassLoader,
+    private val specialClassLoader: ClassLoader?, hostWhiteList: Array<String>?
 ) : BaseDexClassLoader(dexPath, optimizedDirectory, librarySearchPath, parent) {
 
     /**
@@ -113,8 +113,15 @@ class PluginClassLoader(
     }
 
     internal fun loadPluginManifest(): PluginManifest {
-        val clazz = findClass("com.tencent.shadow.core.manifest_parser.PluginManifest")
-        return PluginManifest::class.java.cast(clazz.newInstance())
+        try {
+            val clazz = findClass("com.tencent.shadow.core.manifest_parser.PluginManifest")
+            return PluginManifest::class.java.cast(clazz.newInstance())
+        } catch (e: ClassNotFoundException) {
+            throw Error(
+                "请注意每个插件apk构建时都需要" +
+                        "apply plugin: 'com.tencent.shadow.plugin'", e
+            )
+        }
     }
 
 }

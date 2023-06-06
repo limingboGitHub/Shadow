@@ -33,22 +33,27 @@ android {
     lintOptions {
         abortOnError false
     }
+
+    // 将插件的资源ID分区改为和宿主0x7F不同的值
+    aaptOptions {
+        additionalParameters "--package-id", "0x7E", "--allow-reserved-package-id"
+    }
 }
 
 dependencies {
-    implementation 'com.android.support:support-annotations:28.0.0'
-    implementation 'com.android.support:support-v4:27.1.1'
+    implementation "com.android.support:support-annotations:$android_support_annotations_version"
+    implementation "com.android.support:support-v4:$android_support_version"
     implementation project(':custom-view')
-    pluginCompileOnly 'androidx.test.espresso:espresso-idling-resource:3.3.0'
-    normalImplementation 'androidx.test.espresso:espresso-idling-resource:3.3.0'
+    pluginCompileOnly "androidx.test.espresso:espresso-idling-resource:$espresso_version"
+    normalImplementation "androidx.test.espresso:espresso-idling-resource:$espresso_version"
     pluginCompileOnly project(':plugin-use-host-code-lib')
 
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test:core:1.3.0'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.2'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
-    androidTestImplementation 'androidx.test.espresso:espresso-remote:3.3.0'
-    androidTestImplementation "androidx.test:runner:1.3.0"
+    testImplementation "junit:junit:$junit_version"
+    androidTestImplementation "androidx.test:core:$androidx_test_version"
+    androidTestImplementation "androidx.test.ext:junit:$androidx_test_junit_version"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$espresso_version"
+    androidTestImplementation "androidx.test.espresso:espresso-remote:$espresso_version"
+    androidTestImplementation "androidx.test:runner:$androidx_test_version"
 
     //Shadow Transform后业务代码会有一部分实际引用runtime中的类
     //如果不以compileOnly方式依赖，会导致其他Transform或者Proguard找不到这些类
@@ -61,7 +66,7 @@ buildscript {
             maven { url 'https://mirrors.tencent.com/nexus/repository/maven-public/' }
         } else {
             google()
-            jcenter()
+            mavenCentral()
         }
     }
 
@@ -69,7 +74,7 @@ buildscript {
         classpath 'com.tencent.shadow.core:runtime'
         classpath 'com.tencent.shadow.core:activity-container'
         classpath 'com.tencent.shadow.core:gradle-plugin'
-        classpath 'org.javassist:javassist:3.28.0-GA'
+        classpath "org.javassist:javassist:$javassist_version"
     }
 }
 
@@ -88,7 +93,6 @@ shadow {
                         businessName = 'general-cases'
                         partKey = 'test-plugin-general-cases'
                         buildTask = ':test-plugin-general-cases:assemblePluginDebug'
-                        apkName = 'test-plugin-general-cases-plugin-debug.apk'
                         apkPath = 'projects/test/plugin/general-cases/test-plugin-general-cases/build/outputs/apk/plugin/debug/test-plugin-general-cases-plugin-debug.apk'
                         hostWhiteList = ["androidx.test.espresso",//这个包添加是为了general-cases插件中可以访问测试框架的类
                                          "com.tencent.shadow.test.lib.plugin_use_host_code_lib.interfaces"]//测试插件访问宿主白名单类
@@ -97,14 +101,12 @@ shadow {
                         businessName = 'plugin-service-for-host'
                         partKey = 'plugin-service-for-host'
                         buildTask = ':plugin-service-for-host:assemblePluginDebug'
-                        apkName = 'plugin-service-for-host-plugin-debug.apk'
                         apkPath = 'projects/test/plugin/particular-cases/plugin-service-for-host/build/outputs/apk/plugin/debug/plugin-service-for-host-plugin-debug.apk'
                     }
                     pluginApk5 {
                         businessName = 'androidx-cases'
                         partKey = 'test-plugin-androidx-cases'
                         buildTask = ':test-plugin-androidx-cases:assemblePluginDebug'
-                        apkName = 'test-plugin-androidx-cases-plugin-debug.apk'
                         apkPath = 'projects/test/plugin/androidx-cases/test-plugin-androidx-cases/build/outputs/apk/plugin/debug/test-plugin-androidx-cases-plugin-debug.apk'
                     }
                 }

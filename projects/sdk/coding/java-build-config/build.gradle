@@ -12,11 +12,11 @@ buildscript {
             maven { url 'https://mirrors.tencent.com/nexus/repository/maven-public/' }
         } else {
             google()
-            jcenter()
+            mavenCentral()
         }
     }
     dependencies {
-        classpath 'com.squareup:javapoet:1.11.1'
+        classpath "com.squareup:javapoet:$javapoet_version"
     }
 }
 
@@ -36,7 +36,7 @@ def generateCode = tasks.register('generateCode') {
     doLast {
         def versionNameField
                 = FieldSpec.builder(String, "VERSION_NAME", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                .initializer("\"${project.VERSION_NAME}\"").build()
+                .initializer('$S', project.VERSION_NAME).build()
 
         def buildConfigClass = TypeSpec.classBuilder("BuildConfig")
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)

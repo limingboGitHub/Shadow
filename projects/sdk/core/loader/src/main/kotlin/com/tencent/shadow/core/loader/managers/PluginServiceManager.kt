@@ -99,6 +99,7 @@ private open class UnsafePluginServiceManager(
 
     // 通过startService启动起来的service集合
     private val mServiceStartByStartServiceSet = HashSet<ComponentName>()
+
     // 存在mAliveServicesMap中，且stopService已经调用的service集合
     private val mServiceStopCalledMap = HashSet<ComponentName>()
 
@@ -221,12 +222,13 @@ private open class UnsafePluginServiceManager(
                 // 结束该service
                 isPluginServiceStopped = destroyServiceIfNeed(componentName)
 
+                connection.onServiceDisconnected(componentName)
+
                 break
             }
         }
         return Pair(isPluginService, isPluginServiceStopped)
     }
-
 
 
     fun onConfigurationChanged(newConfig: Configuration?) {
@@ -281,7 +283,7 @@ private open class UnsafePluginServiceManager(
         val tmpShadowDelegate = TmpShadowDelegate()
         mPluginLoader.inject(tmpShadowDelegate, partKey!!)
         val service = tmpShadowDelegate.getAppComponentFactory()
-                .instantiateService(tmpShadowDelegate.getPluginClassLoader(), className, intent)
+            .instantiateService(tmpShadowDelegate.getPluginClassLoader(), className, intent)
 
         service.setPluginResources(tmpShadowDelegate.getPluginResources())
         service.setPluginClassLoader(tmpShadowDelegate.getPluginClassLoader())
@@ -319,7 +321,10 @@ private open class UnsafePluginServiceManager(
             }
         } else {
             // 如果该service，有通过startService,则必须调用过stopService且没有bind了，才能销毁
-            if (mServiceStopCalledMap.contains(service) && !mServiceConnectionMap.containsKey(service)) {
+            if (mServiceStopCalledMap.contains(service) && !mServiceConnectionMap.containsKey(
+                    service
+                )
+            ) {
                 // 结束该service
                 destroy()
                 return true

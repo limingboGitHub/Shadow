@@ -29,8 +29,10 @@ import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.os.Build;
 
+import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * 用于在plugin-loader中调用假的Application方法的接口
@@ -43,6 +45,9 @@ public class ShadowApplication extends ShadowContext {
 
     private ShadowAppComponentFactory mAppComponentFactory;
 
+    final public ShadowActivityLifecycleCallbacks.Holder mActivityLifecycleCallbacksHolder
+            = new ShadowActivityLifecycleCallbacks.Holder();
+
     public boolean isCallOnCreate;
 
     @Override
@@ -50,16 +55,18 @@ public class ShadowApplication extends ShadowContext {
         return this;
     }
 
-    private ShadowActivityLifecycleCallbacks.Holder lifecycleCallbacksHolder;
-
     public void registerActivityLifecycleCallbacks(
             ShadowActivityLifecycleCallbacks callback) {
-        lifecycleCallbacksHolder.registerActivityLifecycleCallbacks(this, callback);
+        mActivityLifecycleCallbacksHolder.registerActivityLifecycleCallbacks(
+                callback, this, mHostApplication
+        );
     }
 
     public void unregisterActivityLifecycleCallbacks(
             ShadowActivityLifecycleCallbacks callback) {
-        lifecycleCallbacksHolder.unregisterActivityLifecycleCallbacks(callback);
+        mActivityLifecycleCallbacksHolder.unregisterActivityLifecycleCallbacks(
+                callback, this, mHostApplication
+        );
     }
 
     public void onCreate() {
@@ -69,9 +76,10 @@ public class ShadowApplication extends ShadowContext {
         for (Map.Entry<String, String[]> entry : mBroadcasts.entrySet()) {
             try {
                 String receiverClassname = entry.getKey();
-                Class<?> clazz = mPluginClassLoader.loadClass(receiverClassname);
-                BroadcastReceiver receiver = ((BroadcastReceiver) clazz.newInstance());
-                mAppComponentFactory.instantiateReceiver(mPluginClassLoader, receiverClassname, null);
+                BroadcastReceiver receiver = mAppComponentFactory.instantiateReceiver(
+                        mPluginClassLoader,
+                        receiverClassname,
+                        null);
 
                 IntentFilter intentFilter = new IntentFilter();
                 String[] receiverActions = entry.getValue();
@@ -147,8 +155,6 @@ public class ShadowApplication extends ShadowContext {
     public void setHostApplicationContextAsBase(Context hostAppContext) {
         super.attachBaseContext(hostAppContext);
         mHostApplication = (Application) hostAppContext;
-        lifecycleCallbacksHolder
-                = new ShadowActivityLifecycleCallbacks.Holder(mHostApplication);
     }
 
     public void setBroadcasts(PluginManifest.ReceiverInfo[] receiverInfos) {
@@ -173,4 +179,5 @@ public class ShadowApplication extends ShadowContext {
     public static String getProcessName() {
         return Application.getProcessName();
     }
+
 }

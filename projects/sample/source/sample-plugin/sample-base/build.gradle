@@ -4,7 +4,7 @@ buildscript {
             maven { url 'https://mirrors.tencent.com/nexus/repository/maven-public/' }
         } else {
             google()
-            jcenter()
+            mavenCentral()
         }
     }
 
@@ -12,7 +12,7 @@ buildscript {
         classpath 'com.tencent.shadow.core:runtime'
         classpath 'com.tencent.shadow.core:activity-container'
         classpath 'com.tencent.shadow.core:gradle-plugin'
-        classpath 'org.javassist:javassist:3.28.0-GA'
+        classpath "org.javassist:javassist:$javassist_version"
     }
 }
 
@@ -32,7 +32,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
             signingConfig signingConfigs.create("release")
@@ -45,6 +45,11 @@ android {
         plugin {
             applicationId project.SAMPLE_HOST_APP_APPLICATION_ID
         }
+    }
+
+    // 将插件的资源ID分区改为和宿主0x7F不同的值
+    aaptOptions {
+        additionalParameters "--package-id", "0x7E", "--allow-reserved-package-id"
     }
 
     lintOptions {

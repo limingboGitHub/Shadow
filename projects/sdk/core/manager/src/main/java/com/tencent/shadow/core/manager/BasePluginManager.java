@@ -39,6 +39,7 @@ import com.tencent.shadow.core.manager.installplugin.SafeZipFile;
 import com.tencent.shadow.core.manager.installplugin.UnpackManager;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
@@ -104,7 +105,21 @@ public abstract class BasePluginManager {
      * @return PluginConfig
      */
     public final PluginConfig installPluginFromZip(File zip, String hash) throws IOException, JSONException {
-        return mUnpackManager.unpackPlugin(hash, zip);
+        String zipHash;
+        if (hash != null) {
+            zipHash = hash;
+        } else {
+            zipHash = mUnpackManager.zipHash(zip);
+        }
+        File pluginUnpackDir = mUnpackManager.getPluginUnpackDir(zipHash, zip);
+        JSONObject configJson = mUnpackManager.getConfigJson(zip);
+        PluginConfig pluginConfig = PluginConfig.parseFromJson(configJson, pluginUnpackDir);
+
+        if (!pluginConfig.isUnpacked()) {
+            mUnpackManager.unpackPlugin(zip, pluginUnpackDir);
+        }
+
+        return pluginConfig;
     }
 
     /**
@@ -118,7 +133,8 @@ public abstract class BasePluginManager {
     public final void onInstallCompleted(PluginConfig pluginConfig,
                                          Map<String, String> soDirMap) {
         File root = mUnpackManager.getAppDir();
-        String oDexDir = AppCacheFolderManager.getODexDir(root, pluginConfig.UUID).getAbsolutePath();
+        String oDexDir = ODexBloc.isEffective() ?
+                AppCacheFolderManager.getODexDir(root, pluginConfig.UUID).getAbsolutePath() : null;
 
         mInstalledDao.insert(pluginConfig, soDirMap, oDexDir);
     }
@@ -163,6 +179,10 @@ public abstract class BasePluginManager {
      * @param partKey 要oDex的插件partkey
      */
     public final void oDexPlugin(String uuid, String partKey, File apkFile) throws InstallPluginException {
+        if (!ODexBloc.isEffective()) {
+            return;
+        }
+
         try {
             File root = mUnpackManager.getAppDir();
             File oDexDir = AppCacheFolderManager.getODexDir(root, uuid);
@@ -184,6 +204,10 @@ public abstract class BasePluginManager {
      * @param apkFile 插件apk文件
      */
     public final void oDexPluginLoaderOrRunTime(String uuid, int type, File apkFile) throws InstallPluginException {
+        if (!ODexBloc.isEffective()) {
+            return;
+        }
+
         try {
             File root = mUnpackManager.getAppDir();
             File oDexDir = AppCacheFolderManager.getODexDir(root, uuid);
@@ -295,7 +319,7 @@ public abstract class BasePluginManager {
      * @param limit 最多获取个数
      */
     public final List<InstalledPlugin> getInstalledPlugins(int limit) {
-        return mInstalledDao.getLastPlugins(limit);
+        return mInstalledDao.getLatestPlugins(limit);
     }
 
 
@@ -358,33 +382,30 @@ public abstract class BasePluginManager {
      */
     protected String getPluginPreferredAbi(String[] pluginSupportedAbis, File apkFile)
             throws InstallPluginException {
-        ZipFile zipFile;
-        try {
-            zipFile = new SafeZipFile(apkFile);
+        try (ZipFile zipFile = new SafeZipFile(apkFile)) {
+            //找出插件apk中lib目录下都有哪些子目录
+            Set<String> subDirsInLib = new LinkedHashSet<>();
+            Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                String name = entry.getName();
+                if (name.startsWith("lib/")) {
+                    String[] split = name.split("/");
+                    if (split.length == 3) {// like "lib/arm64-v8a/libabc.so"
+                        subDirsInLib.add(split[1]);
+                    }
+                }
+            }
+
+            for (String supportedAbi : pluginSupportedAbis) {
+                if (subDirsInLib.contains(supportedAbi)) {
+                    return supportedAbi;
+                }
+            }
+            return "";
         } catch (IOException e) {
             throw new InstallPluginException("读取apk失败，apkFile==" + apkFile, e);
         }
-
-        //找出插件apk中lib目录下都有哪些子目录
-        Set<String> subDirsInLib = new LinkedHashSet<>();
-        Enumeration<? extends ZipEntry> entries = zipFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            String name = entry.getName();
-            if (name.startsWith("lib/")) {
-                String[] split = name.split("/");
-                if (split.length == 3) {// like "lib/arm64-v8a/libabc.so"
-                    subDirsInLib.add(split[1]);
-                }
-            }
-        }
-
-        for (String supportedAbi : pluginSupportedAbis) {
-            if (subDirsInLib.contains(supportedAbi)) {
-                return supportedAbi;
-            }
-        }
-        return "";
     }
 
     /**
@@ -393,15 +414,14 @@ public abstract class BasePluginManager {
      * 所以可用的ABI只能是其中一部分。
      */
     private String[] getPluginSupportedAbis() {
-        String nativeLibraryDir = mHostContext.getApplicationInfo().nativeLibraryDir;
-        int nextIndexOfLastSlash = nativeLibraryDir.lastIndexOf('/') + 1;
-        String instructionSet = nativeLibraryDir.substring(nextIndexOfLastSlash);
-        if (!isKnownInstructionSet(instructionSet)) {
-            throw new IllegalStateException("不认识的instructionSet==" + instructionSet);
-        }
-        boolean is64Bit = is64BitInstructionSet(instructionSet);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            String nativeLibraryDir = mHostContext.getApplicationInfo().nativeLibraryDir;
+            int nextIndexOfLastSlash = nativeLibraryDir.lastIndexOf('/') + 1;
+            String instructionSet = nativeLibraryDir.substring(nextIndexOfLastSlash);
+            if (!isKnownInstructionSet(instructionSet)) {
+                throw new IllegalStateException("不认识的instructionSet==" + instructionSet);
+            }
+            boolean is64Bit = is64BitInstructionSet(instructionSet);
             return is64Bit ? Build.SUPPORTED_64_BIT_ABIS : Build.SUPPORTED_32_BIT_ABIS;
         } else {
             String cpuAbi = Build.CPU_ABI;
@@ -448,21 +468,19 @@ public abstract class BasePluginManager {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return true;
         }
-        ZipFile zipFile;
-        try {
-            zipFile = new SafeZipFile(apkFile);
+        try (ZipFile zipFile = new SafeZipFile(apkFile)) {
+            Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                String name = entry.getName();
+                if (name.startsWith(filter)) {
+                    return entry.getMethod() != ZipEntry.STORED;
+                }
+            }
+            return false;
         } catch (IOException e) {
             throw new InstallPluginException("读取apk失败，apkFile==" + apkFile, e);
         }
-        Enumeration<? extends ZipEntry> entries = zipFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            String name = entry.getName();
-            if (name.startsWith(filter)) {
-                return entry.getMethod() != ZipEntry.STORED;
-            }
-        }
-        return false;
     }
 
     /**

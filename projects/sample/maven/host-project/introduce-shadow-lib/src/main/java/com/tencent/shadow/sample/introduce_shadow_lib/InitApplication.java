@@ -3,6 +3,7 @@ package com.tencent.shadow.sample.introduce_shadow_lib;
 import android.app.ActivityManager;
 import android.app.Application;
 import android.content.Context;
+
 import com.tencent.shadow.core.common.LoggerFactory;
 import com.tencent.shadow.dynamic.host.DynamicPluginManager;
 import com.tencent.shadow.dynamic.host.DynamicRuntime;
@@ -35,20 +36,22 @@ public class InitApplication {
             DynamicRuntime.recoveryRuntime(application);
         }
 
-        FixedPathPmUpdater fixedPathPmUpdater
-                = new FixedPathPmUpdater(new File("/data/local/tmp/sample-manager-debug.apk"));
-        boolean needWaitingUpdate
-                = fixedPathPmUpdater.wasUpdating()//之前正在更新中，暗示更新出错了，应该放弃之前的缓存
-                || fixedPathPmUpdater.getLatest() == null;//没有本地缓存
-        Future<File> update = fixedPathPmUpdater.update();
-        if (needWaitingUpdate) {
-            try {
-                update.get();//这里是阻塞的，需要业务自行保证更新Manager足够快。
-            } catch (Exception e) {
-                throw new RuntimeException("Sample程序不容错", e);
+        if (isProcess(application, application.getPackageName())) {
+            FixedPathPmUpdater fixedPathPmUpdater
+                    = new FixedPathPmUpdater(new File("/data/local/tmp/sample-manager-debug.apk"));
+            boolean needWaitingUpdate
+                    = fixedPathPmUpdater.wasUpdating()//之前正在更新中，暗示更新出错了，应该放弃之前的缓存
+                    || fixedPathPmUpdater.getLatest() == null;//没有本地缓存
+            Future<File> update = fixedPathPmUpdater.update();
+            if (needWaitingUpdate) {
+                try {
+                    update.get();//这里是阻塞的，需要业务自行保证更新Manager足够快。
+                } catch (Exception e) {
+                    throw new RuntimeException("Sample程序不容错", e);
+                }
             }
+            sPluginManager = new DynamicPluginManager(fixedPathPmUpdater);
         }
-        sPluginManager = new DynamicPluginManager(fixedPathPmUpdater);
     }
 
     private static boolean isProcess(Context context, String processName) {

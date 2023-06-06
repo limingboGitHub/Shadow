@@ -20,7 +20,9 @@ package com.tencent.shadow.test.plugin.general_cases.lib.usecases.provider;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.UriMatcher;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
@@ -32,13 +34,22 @@ import android.support.annotation.Nullable;
  * TestProvider
  * Created by 90Chris on 2016/5/1.
  */
-public class TestProvider extends ContentProvider{
+public class TestProvider extends ContentProvider {
     private TestDBHelper mOpenHelper;
 
     @Override
     public boolean onCreate() {
         mOpenHelper = new TestDBHelper(getContext());
         return true;
+    }
+
+    @Override
+    public void attachInfo(Context context, ProviderInfo info) {
+        super.attachInfo(context, info);
+        //用于测试是否读取了Manifest中的grantUriPermissions值,在实际生产中这里并不需要抛出异常
+        if (!info.grantUriPermissions) {
+            throw new IllegalStateException("读取ProviderInfo.grantUriPermissions失败");
+        }
     }
 
 
@@ -54,7 +65,7 @@ public class TestProvider extends ContentProvider{
         final SQLiteDatabase db = mOpenHelper.getReadableDatabase();
 
         Cursor cursor = null;
-        switch ( buildUriMatcher().match(uri)) {
+        switch (buildUriMatcher().match(uri)) {
             case TEST:
                 cursor = db.query(TestProviderInfo.TestEntry.TABLE_NAME, projection, selection, selectionArgs, sortOrder, null, null);
                 break;

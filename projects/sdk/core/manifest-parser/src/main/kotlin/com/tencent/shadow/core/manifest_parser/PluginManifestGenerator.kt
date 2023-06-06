@@ -11,10 +11,8 @@ import javax.lang.model.element.Modifier
  *
  * 将Loader所需的插件Manifest信息生成为Java文件，
  * 添加runtime中PluginManifest接口的实现方法
- *
- * @param packageForR 生成对R.java引用时需要的R文件的包名
  */
-class PluginManifestGenerator(private val packageForR: String) {
+class PluginManifestGenerator {
     /**
      * 生成器入口方法
      *
@@ -25,30 +23,27 @@ class PluginManifestGenerator(private val packageForR: String) {
      * @param packageName   生成类的包名
      */
     fun generate(manifestMap: ManifestMap, outputDir: File, packageName: String) {
-        val pluginManifestBuilder = PluginManifestBuilder(manifestMap, packageForR)
+        val pluginManifestBuilder = PluginManifestBuilder(manifestMap)
         val pluginManifest = pluginManifestBuilder.build()
         JavaFile.builder(packageName, pluginManifest)
-                .build()
-                .writeTo(outputDir)
+            .build()
+            .writeTo(outputDir)
     }
 }
 
-private class PluginManifestBuilder(
-        val manifestMap: ManifestMap,
-        val packageForR: String
-) {
+private class PluginManifestBuilder(val manifestMap: ManifestMap) {
     val classBuilder: TypeSpec.Builder =
-            TypeSpec.classBuilder("PluginManifest")
-                    .addSuperinterface(ClassName.get(PluginManifest::class.java))
-                    .addModifiers(Modifier.PUBLIC)!!
+        TypeSpec.classBuilder("PluginManifest")
+            .addSuperinterface(ClassName.get(PluginManifest::class.java))
+            .addModifiers(Modifier.PUBLIC)!!
 
     fun build(): TypeSpec {
         listOf(
-                *buildApplicationFields(),
-                buildActivityInfoArrayField(),
-                buildServiceInfoArrayField(),
-                buildReceiverInfoArrayField(),
-                buildProviderInfoArrayField(),
+            *buildApplicationFields(),
+            buildActivityInfoArrayField(),
+            buildServiceInfoArrayField(),
+            buildReceiverInfoArrayField(),
+            buildProviderInfoArrayField(),
         ).forEach { fieldSpec ->
             val getterMethod = buildGetterMethod(fieldSpec)
             classBuilder.addField(fieldSpec)
@@ -59,15 +54,15 @@ private class PluginManifestBuilder(
 
     private fun buildApplicationFields(): Array<FieldSpec> {
         val stringFields = mapOf(
-                "applicationPackageName" to AndroidManifestKeys.`package`,
-                "applicationClassName" to AndroidManifestKeys.name,
-                "appComponentFactory" to AndroidManifestKeys.appComponentFactory,
+            "applicationPackageName" to AndroidManifestKeys.`package`,
+            "applicationClassName" to AndroidManifestKeys.name,
+            "appComponentFactory" to AndroidManifestKeys.appComponentFactory,
         ).map { (fieldName, key) ->
             buildStringField(fieldName, key)
         }
 
         val resIdFields = mapOf(
-                "applicationTheme" to AndroidManifestKeys.theme,
+            "applicationTheme" to AndroidManifestKeys.theme,
         ).map { (fieldName, key) ->
             buildResIdField(fieldName, key)
         }
@@ -76,52 +71,55 @@ private class PluginManifestBuilder(
     }
 
     private fun buildActivityInfoArrayField() = buildComponentArrayField(
-            AndroidManifestKeys.activity,
-            "ActivityInfo",
-            "activities",
-            ::toNewActivityInfo,
+        AndroidManifestKeys.activity,
+        "ActivityInfo",
+        "activities",
+        ::toNewActivityInfo,
     )
 
     private fun buildServiceInfoArrayField() = buildComponentArrayField(
-            AndroidManifestKeys.service,
-            "ServiceInfo",
-            "services",
-            ::toNewServiceInfo,
+        AndroidManifestKeys.service,
+        "ServiceInfo",
+        "services",
+        ::toNewServiceInfo,
     )
 
     private fun buildReceiverInfoArrayField() = buildComponentArrayField(
-            AndroidManifestKeys.receiver,
-            "ReceiverInfo",
-            "receivers",
-            ::toNewReceiverInfo,
+        AndroidManifestKeys.receiver,
+        "ReceiverInfo",
+        "receivers",
+        ::toNewReceiverInfo,
     )
 
     private fun buildProviderInfoArrayField() = buildComponentArrayField(
-            AndroidManifestKeys.provider,
-            "ProviderInfo",
-            "providers",
-            ::toNewProviderInfo,
+        AndroidManifestKeys.provider,
+        "ProviderInfo",
+        "providers",
+        ::toNewProviderInfo,
     )
 
     private fun buildComponentArrayField(
-            key: String,
-            subClassName: String,
-            fieldName: String,
-            transform: (ComponentMap) -> String
+        key: String,
+        subClassName: String,
+        fieldName: String,
+        transform: (ComponentMap) -> String
     ): FieldSpec {
         @Suppress("UNCHECKED_CAST")
         val componentMapArray = manifestMap[key] as Array<ComponentMap>
         val literal = componentMapArray.joinToString(
-                separator = ",\n",
-                prefix = "{\n",
-                postfix = "\n}",
-                transform = transform
+            separator = ",\n",
+            prefix = "{\n",
+            postfix = "\n}",
+            transform = transform
         )
 
-        val componentInfoArrayTypeName = ArrayTypeName.of(ClassName.get(
+        val componentInfoArrayTypeName = ArrayTypeName.of(
+            ClassName.get(
                 "com.tencent.shadow.core.runtime",
                 "PluginManifest",
-                subClassName))
+                subClassName
+            )
+        )
 
         val codeBlock = if (componentMapArray.isNotEmpty()) {
             CodeBlock.of("new \$1T \$2L", componentInfoArrayTypeName, literal)
@@ -129,10 +127,10 @@ private class PluginManifestBuilder(
             nullCodeBlock()
         }
         return privateStaticFinalFieldBuilder(
-                componentInfoArrayTypeName,
-                fieldName,
+            componentInfoArrayTypeName,
+            fieldName,
         ).initializer(
-                codeBlock
+            codeBlock
         ).build()
     }
 
@@ -144,18 +142,18 @@ private class PluginManifestBuilder(
             nullCodeBlock()
         }
         return privateStaticFinalStringFieldBuilder(fieldName)
-                .initializer(codeBlock).build()
+            .initializer(codeBlock).build()
     }
 
     private fun buildGetterMethod(fieldSpec: FieldSpec): MethodSpec =
-            MethodSpec.methodBuilder("get${fieldSpec.name.capitalize()}")
-                    .addModifiers(
-                            Modifier.PUBLIC,
-                            Modifier.FINAL,
-                    )
-                    .returns(fieldSpec.type)
-                    .addStatement(CodeBlock.of("return ${fieldSpec.name}"))
-                    .build()
+        MethodSpec.methodBuilder("get${fieldSpec.name.capitalize()}")
+            .addModifiers(
+                Modifier.PUBLIC,
+                Modifier.FINAL,
+            )
+            .returns(fieldSpec.type)
+            .addStatement(CodeBlock.of("return ${fieldSpec.name}"))
+            .build()
 
     private fun buildResIdField(fieldName: String, key: String): FieldSpec {
         val manifestValue = manifestMap[key]
@@ -163,28 +161,30 @@ private class PluginManifestBuilder(
             buildResIdFieldWithValue(fieldName, manifestValue)
         } else {
             privateStaticFinalIntFieldBuilder(fieldName)
-                    .initializer(
-                            CodeBlock.of("$1L", "0")
-                    ).build()
+                .initializer(
+                    CodeBlock.of("$1L", "0")
+                ).build()
         }
     }
 
     private fun buildResIdFieldWithValue(
-            fieldName: String,
-            manifestValue: Any,
+        fieldName: String,
+        manifestValue: Any,
     ): FieldSpec {
 
-        val resIdLiteral = themeStringToResId(manifestValue, packageForR)
+        val resIdLiteral = themeStringToResId(manifestValue)
         return privateStaticFinalIntFieldBuilder(fieldName)
-                .initializer(
-                        CodeBlock.of("$1L", resIdLiteral)
-                ).build()
+            .initializer(
+                CodeBlock.of("$1L", resIdLiteral)
+            ).build()
     }
 
 
     private fun toNewActivityInfo(componentMap: ComponentMap): String {
-        fun makeResIdLiteral(key: String,
-                             valueToResId: (value: String) -> String): String {
+        fun makeResIdLiteral(
+            key: String,
+            valueToResId: (value: String) -> String
+        ): String {
             val value = componentMap[key] as String?
             val literal = if (value != null) {
                 valueToResId(value)
@@ -195,13 +195,13 @@ private class PluginManifestBuilder(
         }
 
         val themeLiteral = makeResIdLiteral(AndroidManifestKeys.theme) {
-            themeStringToResId(it, packageForR)
+            themeStringToResId(it)
         }
         val configChangesLiteral = makeResIdLiteral(AndroidManifestKeys.configChanges) {
-            configChangesToInt(it)
+            it
         }
         val softInputModeLiteral = makeResIdLiteral(AndroidManifestKeys.windowSoftInputMode) {
-            windowSoftInputModeToInt(it)
+            it
         }
 
         return "new com.tencent.shadow.core.runtime.PluginManifest" +
@@ -222,11 +222,11 @@ private class PluginManifestBuilder(
         @Suppress("UNCHECKED_CAST")
         val actions = componentMap[AndroidManifestKeys.action] as List<String>?
         val actionsLiteral =
-                actions?.joinToString(
-                        prefix = "new String[]{\"",
-                        separator = "\", \"",
-                        postfix = "\"}"
-                ) ?: "null"
+            actions?.joinToString(
+                prefix = "new String[]{\"",
+                separator = "\", \"",
+                postfix = "\"}"
+            ) ?: "null"
 
         return "new com.tencent.shadow.core.runtime.PluginManifest" +
                 ".ReceiverInfo(\"${componentMap[AndroidManifestKeys.name]}\", " +
@@ -236,121 +236,51 @@ private class PluginManifestBuilder(
 
     private fun toNewProviderInfo(componentMap: ComponentMap): String {
         val authoritiesValue = componentMap[AndroidManifestKeys.authorities]
+        //如果未传值使用android.content.pm.ProviderInfo.grantUriPermissions的默认值false
+        val grantUriPermissions = componentMap[AndroidManifestKeys.grantUriPermissions] ?: false
+
         val authoritiesLiteral =
-                if (authoritiesValue != null) {
-                    "\"${authoritiesValue}\""
-                } else {
-                    "null"
-                }
+            if (authoritiesValue != null) {
+                "\"${authoritiesValue}\""
+            } else {
+                "null"
+            }
 
         return "new com.tencent.shadow.core.runtime.PluginManifest" +
-                ".ProviderInfo(\"${componentMap[AndroidManifestKeys.name]}\", $authoritiesLiteral)"
+                ".ProviderInfo(\"${componentMap[AndroidManifestKeys.name]}\", $authoritiesLiteral,$grantUriPermissions)"
     }
 
     companion object {
         fun privateStaticFinalFieldBuilder(type: TypeName, fieldName: String) = FieldSpec.builder(
-                type,
-                fieldName,
-                Modifier.PRIVATE,
-                Modifier.STATIC,
-                Modifier.FINAL,
+            type,
+            fieldName,
+            Modifier.PRIVATE,
+            Modifier.STATIC,
+            Modifier.FINAL,
         )!!
 
         fun privateStaticFinalStringFieldBuilder(fieldName: String) =
-                privateStaticFinalFieldBuilder(
-                        ClassName.get(String::class.java),
-                        fieldName,
-                )
+            privateStaticFinalFieldBuilder(
+                ClassName.get(String::class.java),
+                fieldName,
+            )
 
         fun privateStaticFinalIntFieldBuilder(fieldName: String) =
-                privateStaticFinalFieldBuilder(
-                        TypeName.INT,
-                        fieldName,
-                )
+            privateStaticFinalFieldBuilder(
+                TypeName.INT,
+                fieldName,
+            )
 
         fun nullCodeBlock() = CodeBlock.of("null")!!
 
-        fun themeStringToResId(manifestValue: Any, packageForR: String): String {
-            val resName = manifestValue as String // for example: @style/TestPluginTheme
-            val split = resName.split('/')
-            val packagePart = split[0] // for example: @style
-            val namePart = split[1] // for example: TestPluginTheme
-
-            val isSystemResource = packagePart.startsWith("@android:")
-            val packageNameOfRClass = if (isSystemResource) {
-                "android"
+        fun themeStringToResId(manifestValue: Any): String {
+            val formatValue = manifestValue as String // for example: @ref/0x7e0b009e
+            if (formatValue.startsWith("@ref/")) {
+                return formatValue.removePrefix("@ref/")
             } else {
-                packageForR
+                // 其余格式：https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:apkparser/analyzer/src/main/java/com/android/tools/apk/analyzer/BinaryXmlParser.java;l=193
+                throw TODO("不支持其他格式")
             }
-
-            val innerClassName = if (isSystemResource) { // for example: style
-                packagePart.removePrefix("@android:")
-            } else {
-                packagePart.removePrefix("@")
-            }
-
-            val resIdFieldName = namePart.replace('.', '_')
-            return "${packageNameOfRClass}.R.${innerClassName}.${resIdFieldName}"
         }
-
-        private fun flagsToInt(
-                stringValue: String,
-                className: String,
-                fieldMap: (String) -> String,
-        ): String =
-                stringValue.split('|')
-                        .map(String::trim)
-                        .map(fieldMap)
-                        .map { "${className}.${it}" }
-                        .reduce { acc, i -> "$acc|$i" }
-
-        private fun configChangesToInt(configChangesValue: String): String =
-                flagsToInt(
-                        configChangesValue,
-                        "android.content.pm.ActivityInfo"
-                ) {
-                    when (it) {
-                        "mcc" -> "CONFIG_MCC"
-                        "mnc" -> "CONFIG_MNC"
-                        "locale" -> "CONFIG_LOCALE"
-                        "touchscreen" -> "CONFIG_TOUCHSCREEN"
-                        "keyboard" -> "CONFIG_KEYBOARD"
-                        "keyboardHidden" -> "CONFIG_KEYBOARD_HIDDEN"
-                        "navigation" -> "CONFIG_NAVIGATION"
-                        "orientation" -> "CONFIG_ORIENTATION"
-                        "screenLayout" -> "CONFIG_SCREEN_LAYOUT"
-                        "uiMode" -> "CONFIG_UI_MODE"
-                        "screenSize" -> "CONFIG_SCREEN_SIZE"
-                        "smallestScreenSize" -> "CONFIG_SMALLEST_SCREEN_SIZE"
-                        "density" -> "CONFIG_DENSITY"
-                        "layoutDirection" -> "CONFIG_LAYOUT_DIRECTION"
-                        "colorMode" -> "CONFIG_COLOR_MODE"
-                        "assetsPaths" -> "CONFIG_ASSETS_PATHS"
-                        "fontScale" -> "CONFIG_FONT_SCALE"
-                        "windowConfiguration" -> "CONFIG_WINDOW_CONFIGURATION"
-                        else -> throw IllegalArgumentException("不认识$it")
-                    }
-                }
-
-        private fun windowSoftInputModeToInt(windowSoftInputModeValue: String): String =
-                flagsToInt(
-                        windowSoftInputModeValue,
-                        "android.view.WindowManager.LayoutParams"
-                ) {
-                    when (it) {
-                        "stateUnspecified" -> "SOFT_INPUT_STATE_UNSPECIFIED"
-                        "stateUnchanged" -> "SOFT_INPUT_STATE_UNCHANGED"
-                        "stateHidden" -> "SOFT_INPUT_STATE_HIDDEN"
-                        "stateAlwaysHidden" -> "SOFT_INPUT_STATE_ALWAYS_HIDDEN"
-                        "stateVisible" -> "SOFT_INPUT_STATE_VISIBLE"
-                        "stateAlwaysVisible" -> "SOFT_INPUT_STATE_ALWAYS_VISIBLE"
-                        "adjustUnspecified" -> "SOFT_INPUT_ADJUST_UNSPECIFIED"
-                        "adjustResize" -> "SOFT_INPUT_ADJUST_RESIZE"
-                        "adjustPan" -> "SOFT_INPUT_ADJUST_PAN"
-                        "adjustNothing" -> "SOFT_INPUT_ADJUST_NOTHING"
-                        "isForwardNavigation" -> "SOFT_INPUT_IS_FORWARD_NAVIGATION"
-                        else -> throw IllegalArgumentException("不认识$it")
-                    }
-                }
     }
 }

@@ -25,6 +25,7 @@ task jvmTestSdk() {
     dependsOn gradle.includedBuild('coding').task(':test')
     dependsOn gradle.includedBuild('core').task(':test')
     dependsOn gradle.includedBuild('dynamic').task(':test')
+    dependsOn ':common-jar-settings-test:testJavacBootclasspath'
 }
 
 task androidTestSdk() {
@@ -95,6 +96,12 @@ def corePath = 'projects/sdk/core'
 def dynamicGroupId = 'com.tencent.shadow.dynamic'
 def dynamicPath = 'projects/sdk/dynamic'
 
+task getPublicationVersion() {
+    doLast {
+        println "publicationVersion:$publicationVersion"
+    }
+}
+
 publishing {
     publications {
         gradlePlugin(MavenPublication) {
@@ -108,7 +115,6 @@ publishing {
                 def root = asNode()
                 def dependencies = root.appendNode('dependencies')
                 dependencies.append(getDependencyNode('compile', 'org.jetbrains.kotlin', 'kotlin-stdlib-jdk7', kotlin_version))
-                dependencies.append(getDependencyNode('compile', 'com.android.tools.build', 'gradle', build_gradle_version))
                 dependencies.append(getDependencyNode('compile', coreGroupId, 'transform-kit', publicationVersion))
                 dependencies.append(getDependencyNode('compile', coreGroupId, 'transform', publicationVersion))
                 dependencies.append(getDependencyNode('compile', coreGroupId, 'runtime', publicationVersion))
@@ -130,7 +136,7 @@ publishing {
                 def root = asNode()
                 def dependencies = root.appendNode('dependencies')
                 dependencies.append(getDependencyNode('compile', 'org.jetbrains.kotlin', 'kotlin-stdlib-jdk7', kotlin_version))
-                dependencies.append(getDependencyNode('compile', 'com.squareup', 'javapoet', '1.11.1'))
+                dependencies.append(getDependencyNode('compile', 'com.squareup', 'javapoet', javapoet_version))
                 dependencies.append(getDependencyNode('compile', coreGroupId, 'runtime', publicationVersion))
 
                 def scm = root.appendNode('scm')
@@ -243,8 +249,7 @@ publishing {
                 def root = asNode()
                 def dependencies = root.appendNode('dependencies')
                 dependencies.append(getDependencyNode('compile', 'org.jetbrains.kotlin', 'kotlin-stdlib-jdk7', kotlin_version))
-                dependencies.append(getDependencyNode('compile', 'com.android.tools.build', 'gradle', build_gradle_version))
-                dependencies.append(getDependencyNode('compile', 'org.javassist', 'javassist', '3.28.0-GA'))
+                dependencies.append(getDependencyNode('compile', 'org.javassist', 'javassist', javassist_version))
 
                 def scm = root.appendNode('scm')
                 setScm(scm)
@@ -260,7 +265,7 @@ publishing {
             pom.withXml {
                 def root = asNode()
                 def dependencies = root.appendNode('dependencies')
-                dependencies.append(getDependencyNode('compile', 'junit', 'junit', '4.12'))
+                dependencies.append(getDependencyNode('compile', 'junit', 'junit', junit_version))
 
                 def scm = root.appendNode('scm')
                 setScm(scm)

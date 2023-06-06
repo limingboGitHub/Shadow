@@ -18,10 +18,7 @@
 
 package com.tencent.shadow.sample.host;
 
-import android.Manifest;
 import android.app.Activity;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -52,7 +49,9 @@ public class MainActivity extends Activity {
                     public void run() {
                         //hello.apk 里实现了 IHelloWorld
                         final IHelloWorld api = HelloWorldApiHolder.getHelloWorld(PluginHelper.getInstance().helloApkFile);
-                        if (api == null) { return; }
+                        if (api == null) {
+                            return;
+                        }
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
@@ -66,12 +65,6 @@ public class MainActivity extends Activity {
         rootView.addView(textView);
 
         setContentView(rootView);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-            }
-        }
     }
 
     public Button createButton(String title, View.OnClickListener listener) {
@@ -87,18 +80,4 @@ public class MainActivity extends Activity {
         textView.setOnClickListener(listener);
         return textView;
     }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode == 1) {
-            for (int i = 0; i < permissions.length; i++) {
-                if (permissions[i].equals(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                    if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
-                        throw new RuntimeException("必须赋予权限.");
-                    }
-                }
-            }
-        }
-    }
-
 }

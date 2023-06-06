@@ -45,7 +45,8 @@ public abstract class PluginTest {
 
     /**
      * 要启动的插件intent
-     * @return  插件Activity intent
+     *
+     * @return 插件Activity intent
      */
     abstract protected Intent getLaunchIntent();
 
@@ -56,10 +57,11 @@ public abstract class PluginTest {
 
     /**
      * 检测view
+     *
      * @param tag  view的tag
      * @param text view上的文字
      */
-    public void matchTextWithViewTag(String tag,String text){
+    public void matchTextWithViewTag(String tag, String text) {
         Espresso.onView(ViewMatchers.withTagValue(Matchers.<Object>is(tag)))
                 .check(ViewAssertions.matches(ViewMatchers.withText(text)));
     }
@@ -71,8 +73,16 @@ public abstract class PluginTest {
 
     @Before
     public void launchActivity() {
+        IdlingRegistry idlingRegistry = IdlingRegistry.getInstance();
+
+        // 清理上一个测试失败时可能遗留的锁
+        for (IdlingResource resource : idlingRegistry.getResources()) {
+            idlingRegistry.unregister(resource);
+        }
+
         SimpleIdlingResourceImpl idlingResource = HostApplication.getApp().mIdlingResource;
-        IdlingRegistry.getInstance().register(idlingResource);
+        idlingResource.setIdleState(true);
+        idlingRegistry.register(idlingResource);
         TestManager.TheSimpleIdlingResource = idlingResource;
         launchJumpActivity(getPartKey(), getLaunchIntent());
 
@@ -83,7 +93,8 @@ public abstract class PluginTest {
     @After
     public void unregisterIdlingResource() {
         TestManager.TheSimpleIdlingResource = null;
-        IdlingResource idlingResource = HostApplication.getApp().mIdlingResource;
+        SimpleIdlingResourceImpl idlingResource = HostApplication.getApp().mIdlingResource;
+        idlingResource.setIdleState(true);
         IdlingRegistry.getInstance().unregister(idlingResource);
     }
 
@@ -92,10 +103,15 @@ public abstract class PluginTest {
         intent.putExtra(Constant.KEY_PLUGIN_PART_KEY, partKey);
         intent.putExtra(Constant.KEY_ACTIVITY_CLASSNAME, pluginIntent.getComponent().getClassName());
         intent.putExtra(Constant.KEY_EXTRAS, pluginIntent.getExtras());
+        intent.putExtra(Constant.KEY_FROM_ID, getFromId());
         ActivityScenario.launch(intent);
     }
 
     protected Class<? extends Activity> getJumpActivityClass() {
         return JumpToPluginActivity.class;
+    }
+
+    protected int getFromId() {
+        return Constant.FROM_ID_START_ACTIVITY;
     }
 }

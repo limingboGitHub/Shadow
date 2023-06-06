@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
   ~ Tencent is pleased to support the open source community by making Tencent Shadow available.
   ~ Copyright (C) 2019 THL A29 Limited, a Tencent company.  All rights reserved.
   ~
@@ -19,9 +18,8 @@
 
 <resources>
 
-    <style name="TestPluginTheme" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+    <style name="TestPluginTheme" parent="@android:style/Theme.WithActionBar">
         <!--插件设置的android:windowIsTranslucent不能生效,宿主中注册的壳子Activity必须设置windowIsTranslucent==true-->
-        <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:background">#64f56701</item>
     </style>

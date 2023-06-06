@@ -23,14 +23,13 @@ import javassist.ClassPool
 import javassist.CtClass
 import org.gradle.api.Project
 import java.io.*
-import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.system.measureTimeMillis
 
 abstract class AbstractTransform(
-        project: Project,
-        classPoolBuilder: ClassPoolBuilder
+    project: Project,
+    classPoolBuilder: ClassPoolBuilder
 ) : JavassistTransform(project, classPoolBuilder) {
 
     protected abstract val mTransformManager: AbstractTransformManager
@@ -82,14 +81,6 @@ abstract class AbstractTransform(
     }
 
     private fun CtClass.debugWriteJar(outputEntryName: String?, outputStream: ZipOutputStream) {
-        //忽略META-INF
-        if (outputEntryName != null
-            && listOf<(String) -> Boolean>(
-                { it.startsWith("META-INF/") },
-                { it == "module-info.class" },
-            ).any { it(outputEntryName) }
-        ) return
-
         try {
             val entryName = outputEntryName ?: (name.replace('.', '/') + ".class")
             outputStream.putNextEntry(ZipEntry(entryName))
@@ -140,10 +131,17 @@ abstract class AbstractTransform(
     /**
      * 检查转换后的类，其中被替换了的类有实现被调用的方法
      */
-    private fun checkReplacedClassHaveRightMethods(debugClassPool: ClassPool, classNames: List<String>) {
+    private fun checkReplacedClassHaveRightMethods(
+        debugClassPool: ClassPool,
+        classNames: List<String>
+    ) {
         val result = ReplaceClassName.checkAll(debugClassPool, classNames)
         if (result.isNotEmpty()) {
-            val tempFile = File.createTempFile("shadow_replace_class_have_right_methods", ".txt", project.buildDir)
+            val tempFile = File.createTempFile(
+                "shadow_replace_class_have_right_methods",
+                ".txt",
+                project.buildDir
+            )
             val bw = BufferedWriter(FileWriter(tempFile))
 
             result.forEach {
@@ -174,9 +172,10 @@ abstract class AbstractTransform(
             val bw = BufferedWriter(FileWriter(tempFile))
             result.forEach {
                 bw.appendln("In Class ${it.key} 这些方法不再Override父类了:")
-                it.value.map { "${it.first.name}:${it.first.signature}(转换前定义在${it.second})" }.forEach {
-                    bw.appendln(it)
-                }
+                it.value.map { "${it.first.name}:${it.first.signature}(转换前定义在${it.second})" }
+                    .forEach {
+                        bw.appendln(it)
+                    }
                 bw.newLine()
             }
             bw.flush()

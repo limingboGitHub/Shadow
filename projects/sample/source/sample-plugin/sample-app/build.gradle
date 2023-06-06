@@ -4,7 +4,7 @@ buildscript {
             maven { url 'https://mirrors.tencent.com/nexus/repository/maven-public/' }
         } else {
             google()
-            jcenter()
+            mavenCentral()
         }
     }
 
@@ -12,7 +12,7 @@ buildscript {
         classpath 'com.tencent.shadow.core:runtime'
         classpath 'com.tencent.shadow.core:activity-container'
         classpath 'com.tencent.shadow.core:gradle-plugin'
-        classpath 'org.javassist:javassist:3.28.0-GA'
+        classpath "org.javassist:javassist:$javassist_version"
     }
 }
 
@@ -32,7 +32,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
             signingConfig signingConfigs.create("release")
@@ -49,6 +49,11 @@ android {
 
     lintOptions {
         abortOnError false
+    }
+
+    // 将插件的资源ID分区改为和宿主0x7F不同的值
+    aaptOptions {
+        additionalParameters "--package-id", "0x7E", "--allow-reserved-package-id"
     }
 }
 
@@ -110,7 +115,6 @@ shadow {
                         businessName = 'sample-plugin-app'
                         partKey = 'sample-plugin-app'
                         buildTask = ':sample-app:assemblePluginDebug'
-                        apkName = 'sample-app-plugin-debug.apk'
                         apkPath = 'projects/sample/source/sample-plugin/sample-app/build/outputs/apk/plugin/debug/sample-app-plugin-debug.apk'
                         hostWhiteList = ["com.tencent.shadow.sample.host.lib"]
                         dependsOn = ['sample-base']
@@ -119,7 +123,6 @@ shadow {
                         businessName = 'sample-plugin-app2'
                         partKey = 'sample-plugin-app2'
                         buildTask = ':sample-app:assemblePluginDebug'
-                        apkName = 'sample-app-plugin-debug2.apk'
                         apkPath = 'projects/sample/source/sample-plugin/sample-app/build/outputs/apk/plugin/debug/sample-app-plugin-debug2.apk'
                         hostWhiteList = ["com.tencent.shadow.sample.host.lib"]
                         dependsOn = ['sample-base']
@@ -128,7 +131,6 @@ shadow {
                         businessName = 'sample-plugin-app'
                         partKey = 'sample-base'
                         buildTask = ':sample-base:assemblePluginDebug'
-                        apkName = 'sample-base-plugin-debug.apk'
                         apkPath = 'projects/sample/source/sample-plugin/sample-base/build/outputs/apk/plugin/debug/sample-base-plugin-debug.apk'
                         hostWhiteList = ["com.tencent.shadow.sample.host.lib"]
                     }
@@ -143,7 +145,6 @@ shadow {
                         businessName = 'sample-plugin-app'
                         partKey = 'sample-plugin-app'
                         buildTask = ':sample-app:assemblePluginRelease'
-                        apkName = 'sample-plugin-app-release.apk'
                         apkPath = 'projects/sample/source/sample-plugin/sample-app/build/outputs/apk/plugin/release/sample-app-plugin-release.apk'
                         hostWhiteList = ["com.tencent.shadow.sample.host.lib"]
                         dependsOn = ['sample-base']
@@ -152,7 +153,6 @@ shadow {
                         businessName = 'sample-plugin-app2'
                         partKey = 'sample-plugin-app2'
                         buildTask = ':sample-app:assemblePluginRelease'
-                        apkName = 'sample-plugin-app-release2.apk'
                         apkPath = 'projects/sample/source/sample-plugin/sample-app/build/outputs/apk/plugin/release/sample-app-plugin-release2.apk'
                         hostWhiteList = ["com.tencent.shadow.sample.host.lib"]
                         dependsOn = ['sample-base']
@@ -161,7 +161,6 @@ shadow {
                         businessName = 'sample-plugin-app'
                         partKey = 'sample-base'
                         buildTask = ':sample-base:assemblePluginRelease'
-                        apkName = 'sample-base-plugin-release.apk'
                         apkPath = 'projects/sample/source/sample-plugin/sample-base/build/outputs/apk/plugin/release/sample-base-plugin-release.apk'
                         hostWhiteList = ["com.tencent.shadow.sample.host.lib"]
                     }
